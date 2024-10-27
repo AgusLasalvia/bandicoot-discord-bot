@@ -1,0 +1,32 @@
+import pymysql
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+HOST = os.getenv("SQL_HOST")
+USER = os.getenv("SQL_USER")
+PASSWORD = os.getenv("SQL_PASSWORD")
+DATABASE = os.getenv("SQL_DATABASE")
+PORT = os.getenv("SQL_PORT")
+
+
+conn = pymysql.connect(
+    host=HOST,
+    user=USER,
+    password=PASSWORD,
+    database=DATABASE,
+    port=int(PORT)
+)
+
+cursor = conn.cursor()
+
+
+def verify_sql_user(username: str, password: str) -> bool:
+    cursor.execute(
+        f"SELECT * FROM User WHERE username='{username}' AND password='{password}';")
+    response = list(cursor.fetchall())
+    print(response)
+    if len(response) > 0:
+        return True
+    return False
