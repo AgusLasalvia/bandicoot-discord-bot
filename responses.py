@@ -18,8 +18,8 @@ def get_response(user_input: str) -> str:
 
 def user_verifiction(message:str) -> bool:
     
-    verify:list = message.split("-")
-    print(verify)
-    if verify[0] == "ip":
-        return database.verify_sql_user(verify[1],verify[2])
+    split_message:list = message.split("-")
+    print(split_message)
+    if split_message[0] == "ip":
+        return database.split_message_sql_user(split_message[1],split_message[2])
     return False
