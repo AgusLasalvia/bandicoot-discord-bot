@@ -30,3 +30,9 @@ def verify_sql_user(username: str, password: str) -> bool:
     if len(response) > 0:
         return True
     return False
+
+
+def change_password(username: str, new_passowrd: str) -> bool:
+    cursor.execute(
+        f"UPDATE User SET password = '{new_passowrd}' WHERE username='{username}'")
+    return verify_sql_user(username, new_passowrd)

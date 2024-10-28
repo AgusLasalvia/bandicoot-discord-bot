@@ -7,19 +7,37 @@ Lista de comandos:
 2- puto
 """
 
+commands: list = [
+    '!ip', '!passwd', "!commands"
+]
+
+# reponse handler
+
+
 def get_response(user_input: str) -> str:
-    if user_verifiction(user_input):
-        return url.urlopen("https://ident.me").read().decode("utf8")
-    elif user_input == "puto":
-        return "chupala gil"
+    incoming: list = user_input.split('-')
+    command: str = incoming[0]
+    if command in commands:
+        if command == "!commands":
+            return menu
 
-    return ""
+        # IP command handler
+        if command == "!ip" and user_verifiction(user_input):
+            return url.urlopen("https://ident.me").read().decode("utf8")
+        elif command == "!ip" and user_verifiction(user_input) == False:
+            return "User not found"
+
+            # Password Chager command handler
+        if command == "!passwd" and user_verifiction(incoming):
+            if database.change_password(incoming[1], incoming[3]):
+                return "Password changed successfuly"
+            else:
+                return "Error changing passowrd"
+    else:
+        return "Command not found"
 
 
-def user_verifiction(message:str) -> bool:
-    
-    split_message:list = message.split("-")
-    print(split_message)
-    if split_message[0] == "ip":
-        return database.split_message_sql_user(split_message[1],split_message[2])
+def user_verifiction(message: list) -> bool:
+    if message[0] == "!ip":
+        return database.verify_sql_user(message[1], message[2])
     return False
