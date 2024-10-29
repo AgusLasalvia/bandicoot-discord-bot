@@ -3,8 +3,9 @@ import database
 
 menu = """
 Lista de comandos:
-1- id-usuario-password
-2- puto
+
+1- !ip-usuario-password                       - Pedir IP de Servidor          
+2- !passwd-usuario-old_password-new_password  - Cambiar Password de Usuario:   
 """
 
 commands: list = [

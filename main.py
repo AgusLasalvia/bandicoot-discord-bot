@@ -38,15 +38,12 @@ async def on_ready() -> None:
 async def on_message(message: Message) -> None:
     if message.author == client.user:
         return
-    username: str = str(message.author)
     user_message: str = message.content
-    channel: str = str(message.channel)
     await send_message(message, user_message)
 
 
 def main() -> None:
     client.run(token=TOKEN)
-    
 
 
 if __name__ == "__main__":
