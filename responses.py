@@ -33,8 +33,6 @@ def get_response(user_input: str) -> str:
                 return "Password changed successfuly"
             else:
                 return "Error changing passowrd"
-    else:
-        return "Command not found"
 
 
 def user_verifiction(message: list) -> bool:
