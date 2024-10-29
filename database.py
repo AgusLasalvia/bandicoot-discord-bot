@@ -10,6 +10,8 @@ PASSWORD = os.getenv("SQL_PASSWORD")
 DATABASE = os.getenv("SQL_DATABASE")
 PORT = os.getenv("SQL_PORT")
 
+print(HOST)
+
 
 conn = pymysql.connect(
     host=HOST,

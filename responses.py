@@ -1,5 +1,5 @@
 import urllib.request as url
-import database
+# import database
 
 menu = """
 Lista de comandos:
@@ -29,13 +29,15 @@ def get_response(user_input: str) -> str:
 
             # Password Chager command handler
         if command == "!passwd" and user_verifiction(incoming):
-            if database.change_password(incoming[1], incoming[3]):
-                return "Password changed successfuly"
-            else:
-                return "Error changing passowrd"
+            # if database.change_password(incoming[1], incoming[3]):
+            # return "Password changed successfuly"
+            # else:
+            # return "Error changing passowrd"
+            pass
 
 
 def user_verifiction(message: list) -> bool:
     if message[0] == "!ip":
-        return database.verify_sql_user(message[1], message[2])
+        pass
+        # return database.verify_sql_user(message[1], message[2])
     return False
