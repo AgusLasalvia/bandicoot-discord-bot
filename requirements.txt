@@ -1,3 +1,6 @@
 discord
 pymysql
-dotenv
+python-dotenv
+yt-dlp
+PyNaCl
+ffmpeg-python

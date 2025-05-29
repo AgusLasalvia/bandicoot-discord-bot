@@ -1,0 +1,84 @@
+import discord
+from discord.ext import commands
+import yt_dlp
+from collections import deque
+import asyncio
+
+yt_formats_options = {
+	'format': 'bestaudio/best',
+	'quiet': True,
+	'default_search': 'auto',
+	'noplaylist': True,
+	'postprocessors': [{
+		'key': 'FFmpegExtractAudio',
+		'preferredcodec': 'mp3',
+		'preferredquality': '192',
+	}],
+}
+
+
+ffmpeg_options = {
+	'options': '-vn -b:a 192k',
+	'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+}
+
+
+ytdl = yt_dlp.YoutubeDL(yt_formats_options)
+
+class MusicPlayer:
+	def __init__(self):
+		self.queue = deque()
+		self.current_song = None
+		self.is_playing = False
+
+	def add_to_queue(self, url: str):
+		self.queue.append(url)
+
+	def clear_queue(self):
+		self.queue.clear()
+		self.current_song = None
+		self.is_playing = False
+
+	def get_queue_length(self):
+		return len(self.queue)
+
+	async def play_next(self, voice_client):
+		if not self.queue or not voice_client:
+			self.is_playing = False
+			self.current_song = None
+			return
+
+		if voice_client.is_playing():
+			voice_client.stop()
+
+		try:
+			url = self.queue.popleft()
+			self.current_song = url
+			source = get_audio_source(url)
+			if source:
+				def after_callback(error):
+					if error:
+						print(f"Error in playback: {error}")
+					coro = self.play_next(voice_client)
+					fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
+					try:
+						fut.result()
+					except:
+						pass
+
+				voice_client.play(source, after=after_callback)
+				self.is_playing = True
+			else:
+				await self.play_next(voice_client)
+		except Exception as e:
+			print(f"Error playing next song: {e}")
+			await self.play_next(voice_client)
+
+def get_audio_source(url: str):
+    try:
+        info = ytdl.extract_info(url, download=False)
+        url_audio = info['url'] if 'url' in info else info['formats'][0]['url']
+        return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)
+    except Exception as e:
+        print(f"Error getting audio source: {e}")
+        return None
