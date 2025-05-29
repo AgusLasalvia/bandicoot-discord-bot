@@ -9,7 +9,8 @@ from discord.ext.commands import Context
 
 #logic
 from logic.responses import get_response
-from logic.player import MusicPlayer
+
+from logic.player import MusicPlayer,search_video_url
 
 #UI
 from UI.music_view import MusicControlView
@@ -121,7 +122,7 @@ async def stop(ctx: Context):
     await ctx.send("⏹️ Playback stopped and queue cleared")
 
 @bot.command(name="play")
-async def play(ctx: Context, *, url: str):
+async def play(ctx: Context, *, text: str):
     if not ctx.author.voice:  # pyright:ignore
         await ctx.send("You need to be in a voice channel to use this command!")
         return
@@ -133,8 +134,15 @@ async def play(ctx: Context, *, url: str):
             voice_client = await voice_channel.connect()  # pyright:ignore
         else:
             voice_client = ctx.voice_client
+        if "https://" in text or "youtube.com" in text:
+            music_player.add_to_queue(text)
+        else:
+            url = await search_video_url(text)
+            if not url:
+                await ctx.send("❌ No se encontró ningún video para esa búsqueda.")
+                return
+            music_player.add_to_queue(url)
 
-        music_player.add_to_queue(url)
         await ctx.send(
             f"🎵 Added to queue. Position: {music_player.get_queue_length()}"
         )

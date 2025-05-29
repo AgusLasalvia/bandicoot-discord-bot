@@ -2,6 +2,7 @@ import discord
 import yt_dlp
 from collections import deque
 import asyncio
+from youtubesearchpython import VideosSearch
 
 yt_formats_options = {
     "format": "bestaudio/best",
@@ -56,7 +57,7 @@ class MusicPlayer:
         try:
             url = self.queue.popleft()
             self.current_song = url
-            source = get_audio_source(url)
+            source = await get_audio_source(url)
             if source:
 
                 def after_callback(error):
@@ -77,8 +78,18 @@ class MusicPlayer:
             print(f"Error playing next song: {e}")
             await self.play_next(voice_client)
 
+async def search_video_url(filter_text):
+    try:
+        search = VideosSearch(str(filter_text), limit=1).result()['result'][0]['link']
+        url = search
+        print(f"🔍 URL encontrada: {url}")
+        return url
+    except Exception as e:
+        print(f"Error en search_video_url: {e}")
+        return None
 
-def get_audio_source(url: str):
+
+async def get_audio_source(url: str):
     try:
         info = ytdl.extract_info(url, download=False)
         url_audio = info["url"] if "url" in info else info["formats"][0]["url"]  # pyright: ignore
