@@ -1,0 +1,16 @@
+[Unit]
+Description=Discord Bot Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/bandicoot-discord-bot
+ExecStart=/usr/bin/python3 /root/bandicoot-discord-bot/main.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+
