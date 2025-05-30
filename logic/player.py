@@ -3,6 +3,7 @@ import yt_dlp
 from collections import deque
 import asyncio
 from youtubesearchpython import VideosSearch
+import re
 
 yt_formats_options = {
     "format": "bestaudio/best",
@@ -18,12 +19,10 @@ yt_formats_options = {
     ],
 }
 
-
 ffmpeg_options = {
     "options": "-vn -b:a 192k",
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
 }
-
 
 ytdl = yt_dlp.YoutubeDL(yt_formats_options)
 
@@ -33,6 +32,14 @@ class MusicPlayer:
         self.queue = deque()
         self.current_song = None
         self.is_playing = False
+        self.voice_client = None
+        self.update_now_playing = None  # función callback
+
+    def set_voice_client(self, vc):
+        self.voice_client = vc
+
+    def set_update_callback(self, callback):
+        self.update_now_playing = callback
 
     def add_to_queue(self, url: str):
         self.queue.append(url)
@@ -59,6 +66,9 @@ class MusicPlayer:
             self.current_song = url
             source = await get_audio_source(url)
             if source:
+                # 🔄 Callback para actualizar el mensaje en el canal
+                if self.update_now_playing:
+                    await self.update_now_playing(url)
 
                 def after_callback(error):
                     if error:
@@ -78,12 +88,12 @@ class MusicPlayer:
             print(f"Error playing next song: {e}")
             await self.play_next(voice_client)
 
+
 async def search_video_url(filter_text):
     try:
         search = VideosSearch(str(filter_text), limit=1).result()['result'][0]['link']
-        url = search
-        print(f"🔍 URL encontrada: {url}")
-        return url
+        print(f"🔍 URL encontrada: {search}")
+        return search
     except Exception as e:
         print(f"Error en search_video_url: {e}")
         return None
@@ -97,3 +107,5 @@ async def get_audio_source(url: str):
     except Exception as e:
         print(f"Error getting audio source: {e}")
         return None
+
+
