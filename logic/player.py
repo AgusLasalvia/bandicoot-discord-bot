@@ -33,7 +33,7 @@ class MusicPlayer:
         self.current_song = None
         self.is_playing = False
         self.voice_client = None
-        self.update_now_playing = None  # función callback
+        self.update_now_playing = None
 
     def set_voice_client(self, vc):
         self.voice_client = vc
@@ -66,7 +66,6 @@ class MusicPlayer:
             self.current_song = url
             source = await get_audio_source(url)
             if source:
-                # 🔄 Callback para actualizar el mensaje en el canal
                 if self.update_now_playing:
                     await self.update_now_playing(url)
 
@@ -102,8 +101,8 @@ async def search_video_url(filter_text):
 async def get_audio_source(url: str):
     try:
         info = ytdl.extract_info(url, download=False)
-        url_audio = info["url"] if "url" in info else info["formats"][0]["url"]  # pyright: ignore
-        return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)  # pyright: ignore
+        url_audio = info["url"] if "url" in info else info["formats"][0]["url"] 
+        return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options) 
     except Exception as e:
         print(f"Error getting audio source: {e}")
         return None
