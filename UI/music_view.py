@@ -28,7 +28,7 @@ class MusicControlView(discord.ui.View):
             await interaction.response.send_message("Nada para saltar.", ephemeral=True)
 
 
-    @discord.ui.button(label="⏹️ Detener", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="⏹️ Stop", style=discord.ButtonStyle.danger)
     async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.player.clear_queue()
         self.voice_client.stop()
