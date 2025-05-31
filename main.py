@@ -139,7 +139,7 @@ async def play(ctx: Context, *, text: str):
         else:
             url = await search_video_url(text)
             if not url:
-                await ctx.send("❌ Song/Video Not Found.")
+                await ctx.send("❌ No se encontró ningún video para esa búsqueda.")
                 return
             music_player.add_to_queue(url)
 
@@ -148,12 +148,12 @@ async def play(ctx: Context, *, text: str):
         )
 
         if not music_player.is_playing:
-            await music_player.play_next(voice_client,ctx)
+            await music_player.play_next(voice_client)
 
         # Aquí creamos la vista y la enviamos con un mensaje interactivo:
         view = MusicControlView(music_player, voice_client, ctx)
         await ctx.send(
-            f"🎶 Playing: {music_player.current_song}",
+            f"🎶 Reproduciendo: {music_player.current_song}",
             view=view
         )
 
