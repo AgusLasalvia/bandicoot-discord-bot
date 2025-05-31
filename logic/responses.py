@@ -34,5 +34,4 @@ def get_response(user_input: str):
 								return "Password changed successfully"
 						else:
 								return "Error changing password"
-		else:
-			return "Command not recognized"
+
