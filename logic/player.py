@@ -3,7 +3,6 @@ import yt_dlp
 from collections import deque
 import asyncio
 from youtubesearchpython import VideosSearch
-import re
 
 yt_formats_options = {
     "format": "bestaudio/best",
@@ -107,5 +106,3 @@ async def get_audio_source(url: str):
     except Exception as e:
         print(f"Error getting audio source: {e}")
         return None
-
-

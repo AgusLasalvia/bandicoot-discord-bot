@@ -151,11 +151,20 @@ async def play(ctx: Context, *, text: str):
             await music_player.play_next(voice_client)
 
         # Aquí creamos la vista y la enviamos con un mensaje interactivo:
-        view = MusicControlView(music_player, voice_client, ctx)
-        await ctx.send(
-            f"🎶 Reproduciendo: {music_player.current_song}",
-            view=view
-        )
+            view = MusicControlView(music_player, voice_client, ctx)
+
+            # callback que actualiza el mensaje cuando cambia la canción
+            async def update_now_playing(url):
+                if view.now_playing_message:
+                    await view.now_playing_message.edit(content=f"🎶 Reproduciendo: {url}", view=view)
+
+            music_player.set_update_callback(update_now_playing)
+
+            view.now_playing_message = await ctx.send(
+                f"🎶 Reproduciendo: {music_player.current_song}",
+                view=view
+            )
+
 
     except Exception as e:
         await ctx.send("Could not connect to the voice channel!")
