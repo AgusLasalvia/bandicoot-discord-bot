@@ -13,20 +13,20 @@ class MusicControlView(discord.ui.View):
     async def toggle_play(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.voice_client.is_playing():
             self.voice_client.pause()
-            await interaction.response.edit_message(content="⏸️ Pausado", view=self)
+            await interaction.response.edit_message(content="⏸️ Paused", view=self)
         elif self.voice_client.is_paused():
             self.voice_client.resume()
-            await interaction.response.edit_message(content=f"▶️ Reproduciendo: {self.player.current_song}", view=self)
+            await interaction.response.edit_message(content=f"▶️ Playing: {self.player.current_song}", view=self)
         else:
-            await interaction.response.send_message("No hay música reproduciéndose.", ephemeral=True)
+            await interaction.response.send_message("No music left in Queue.", ephemeral=True)
 
-    @discord.ui.button(label="⏭️ Siguiente", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="⏭️ Next", style=discord.ButtonStyle.secondary)
     async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.voice_client.is_playing() or self.voice_client.is_paused():
             self.voice_client.stop()
-            await interaction.response.send_message("⏭️ Saltando...", ephemeral=True)
+            await interaction.response.send_message("⏭️ Skiping...", ephemeral=True)
         else:
-            await interaction.response.send_message("Nada para saltar.", ephemeral=True)
+            await interaction.response.send_message("Nothing to Skip.", ephemeral=True)
 
 
     @discord.ui.button(label="⏹️ Detener", style=discord.ButtonStyle.danger)
@@ -34,4 +34,4 @@ class MusicControlView(discord.ui.View):
         self.player.clear_queue()
         self.voice_client.stop()
         await self.voice_client.disconnect()
-        await interaction.response.edit_message(content="🛑 Reproductor detenido.", view=None)
+        await interaction.response.edit_message(content="🛑 Player Stoped.", view=None)
