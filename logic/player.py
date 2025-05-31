@@ -66,11 +66,6 @@ class MusicPlayer:
             self.current_song = url
             source = await get_audio_source(url)
             if source:
-                if self.update_now_playing:
-                           await ctx.send(
-            f"🎶 Playing: {music_player.current_song}",
-            view=view
-        )
 
                 def after_callback(error):
                     if error:
