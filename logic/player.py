@@ -52,7 +52,7 @@ class MusicPlayer:
     def get_queue_length(self):
         return len(self.queue)
 
-    async def play_next(self, voice_client):
+    async def play_next(self, voice_client,ctx):
         if not self.queue or not voice_client:
             self.is_playing = False
             self.current_song = None
@@ -67,7 +67,10 @@ class MusicPlayer:
             source = await get_audio_source(url)
             if source:
                 if self.update_now_playing:
-                    await self.update_now_playing(url)
+                           await ctx.send(
+            f"🎶 Playing: {music_player.current_song}",
+            view=view
+        )
 
                 def after_callback(error):
                     if error:
