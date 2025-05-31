@@ -7,6 +7,7 @@ class MusicControlView(discord.ui.View):
         self.player = player
         self.voice_client = voice_client
         self.ctx = ctx
+        self.now_playing_message = None  # para actualizar el mensaje de reproducción
 
     @discord.ui.button(label="⏯️ Play/Pause", style=discord.ButtonStyle.primary)
     async def toggle_play(self, interaction: discord.Interaction, button: discord.ui.Button):
