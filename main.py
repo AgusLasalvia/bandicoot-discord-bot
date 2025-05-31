@@ -139,7 +139,7 @@ async def play(ctx: Context, *, text: str):
         else:
             url = await search_video_url(text)
             if not url:
-                await ctx.send("❌ No se encontró ningún video para esa búsqueda.")
+                await ctx.send("❌ No Song/Video where found")
                 return
             music_player.add_to_queue(url)
 
@@ -156,12 +156,12 @@ async def play(ctx: Context, *, text: str):
             # callback que actualiza el mensaje cuando cambia la canción
             async def update_now_playing(url):
                 if view.now_playing_message:
-                    await view.now_playing_message.edit(content=f"🎶 Reproduciendo: {url}", view=view)
+                    await view.now_playing_message.edit(content=f"🎶 Playing: {url}", view=view)
 
             music_player.set_update_callback(update_now_playing)
 
             view.now_playing_message = await ctx.send(
-                f"🎶 Reproduciendo: {music_player.current_song}",
+                f"🎶 Playing: {music_player.current_song}",
                 view=view
             )
 
