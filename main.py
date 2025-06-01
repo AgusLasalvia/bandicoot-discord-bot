@@ -3,18 +3,15 @@ from typing import Final
 
 from dotenv import load_dotenv
 
-from discord import Intents, Message
+import discord
+from discord import app_commands, Intents
 from discord.ext import commands
-from discord.ext.commands import Context
 
-#logic
-from logic.responses import get_response
+# Logic
+from logic.player import MusicPlayer, search_video_url
 
-from logic.player import MusicPlayer,search_video_url
-
-#UI
+# UI
 from UI.music_view import MusicControlView
-
 
 load_dotenv()
 
@@ -22,80 +19,107 @@ TOKEN: Final[str] = str(os.getenv("DISCORD_TOKEN"))
 
 intents: Intents = Intents.default()
 intents.message_content = True
-bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Create music player instance
+bot = commands.Bot(intents=intents, command_prefix=commands.when_mentioned)
+tree = bot.tree
 music_player = MusicPlayer()
-
-async def send_message(message: Message, user_message: str) -> None:
-    if not user_message:
-        return
-    if is_private := user_message[0] == "?":
-        user_message = user_message[1:]
-
-    try:
-        response: str = get_response(user_message)
-        if len(response) != 0:
-            await message.author.send(
-                response
-            ) if is_private else await message.channel.send(response)
-    except Exception as e:
-        print(e)
 
 
 @bot.event
 async def on_voice_state_update(member, before, after):
-    # Si el bot no está conectado a ningún canal de voz, no hace nada
     voice_client = member.guild.voice_client
     if not voice_client:
         return
 
-    # Verificamos el canal donde está el bot
     voice_channel = voice_client.channel
-
-    # Si alguien salió del canal donde está el bot (antes estaba ahí, ahora no)
     if before.channel == voice_channel and after.channel != voice_channel:
-        # Revisar cuántos usuarios quedan en ese canal (excluyendo al bot)
         if len([m for m in voice_channel.members if not m.bot]) == 0:
-            # No quedan usuarios humanos, desconectar el bot
             await voice_client.disconnect()
             music_player.clear_queue()
-            print(
-                f"Bot disconnected from {voice_channel} because the channel is empty."
-            )
+            print(f"Bot disconnected from {voice_channel} because the channel is empty.")
 
 
 @bot.event
 async def on_ready() -> None:
-    print(f"{bot.user} is now running")
+    await tree.sync()
+    print(f"{bot.user} is now running and slash commands are synced")
 
 
-@bot.event
-async def on_message(message: Message) -> None:
-    if message.author == bot.user:
-        return
-    user_message: str = message.content
-    await send_message(message, user_message)
-    await bot.process_commands(message)
-
-
-@bot.command(name="skip")
-async def skip(ctx: Context):
-    if not ctx.voice_client:
-        await ctx.send("I'm not playing anything!")
+@tree.command(name="play", description="Play a song from a URL or search query")
+async def play(interaction: discord.Interaction, query: str):
+    if not interaction.user.voice:
+        await interaction.response.send_message("You need to be in a voice channel to use this command!", ephemeral=True)
         return
 
-    if ctx.voice_client.is_playing(): #pyright:ignore
-        ctx.voice_client.stop() #pyright:ignore
-        await ctx.send("⏭️ Skipping to next song...")
+    voice_channel = interaction.user.voice.channel
+
+    try:
+        if not interaction.guild.voice_client:
+            voice_client = await voice_channel.connect()
+        else:
+            voice_client = interaction.guild.voice_client
+
+        if "https://" in query or "youtube.com" in query:
+            music_player.add_to_queue(query)
+        else:
+            url = await search_video_url(query)
+            if not url:
+                await interaction.response.send_message("❌ No Song/Video found", ephemeral=True)
+                return
+            music_player.add_to_queue(url)
+
+        await interaction.response.send_message(f"🎵 Added to queue. Position: {music_player.get_queue_length()}")
+
+        if not music_player.is_playing:
+            await music_player.play_next(voice_client)
+
+            view = MusicControlView(music_player, voice_client, interaction)
+
+            async def update_now_playing(url):
+                if view.now_playing_message:
+                    await view.now_playing_message.edit(content=f"🎶 Playing: {url}", view=view)
+
+            music_player.set_update_callback(update_now_playing)
+
+            view.now_playing_message = await interaction.channel.send(
+                f"🎶 Playing: {music_player.current_song}",
+                view=view
+            )
+
+    except Exception as e:
+        await interaction.response.send_message("Could not connect to the voice channel!", ephemeral=True)
+        print(f"Error connecting to voice channel: {e}")
+
+
+@tree.command(name="skip", description="Skip the currently playing song")
+async def skip(interaction: discord.Interaction):
+    if not interaction.guild.voice_client:
+        await interaction.response.send_message("I'm not playing anything!", ephemeral=True)
+        return
+
+    if interaction.guild.voice_client.is_playing():
+        interaction.guild.voice_client.stop()
+        await interaction.response.send_message("⏭️ Skipping to next song...")
     else:
-        await ctx.send("Nothing is playing!")
+        await interaction.response.send_message("Nothing is playing!", ephemeral=True)
 
 
-@bot.command(name="queue")
-async def queue(ctx: Context):
+@tree.command(name="stop", description="Stop the music and clear the queue")
+async def stop(interaction: discord.Interaction):
+    if not interaction.guild.voice_client:
+        await interaction.response.send_message("I'm not playing anything!", ephemeral=True)
+        return
+
+    music_player.clear_queue()
+    interaction.guild.voice_client.stop()
+    await interaction.guild.voice_client.disconnect()
+    await interaction.response.send_message("⏹️ Playback stopped and queue cleared")
+
+
+@tree.command(name="queue", description="Show the current music queue")
+async def queue(interaction: discord.Interaction):
     if music_player.get_queue_length() == 0 and not music_player.current_song:
-        await ctx.send("Queue is empty")
+        await interaction.response.send_message("Queue is empty")
         return
 
     queue_list = "🎵 **Music Queue:**\n"
@@ -107,72 +131,7 @@ async def queue(ctx: Context):
         for i, song in enumerate(music_player.queue, 1):
             queue_list += f"{i}. {song}\n"
 
-    await ctx.send(queue_list)
-
-
-@bot.command(name="stop")
-async def stop(ctx: Context):
-    if not ctx.voice_client:
-        await ctx.send("I'm not playing anything!")
-        return
-
-    music_player.clear_queue()
-    ctx.voice_client.stop() #pyright:ignore
-    await ctx.voice_client.disconnect() #pyright:ignore
-    await ctx.send("⏹️ Playback stopped and queue cleared")
-
-@bot.command(name="play")
-async def play(ctx: Context, *, text: str):
-    if not ctx.author.voice:  # pyright:ignore
-        await ctx.send("You need to be in a voice channel to use this command!")
-        return
-
-    voice_channel = ctx.author.voice.channel  # pyright:ignore
-
-    try:
-        if not ctx.voice_client:
-            voice_client = await voice_channel.connect()  # pyright:ignore
-        else:
-            voice_client = ctx.voice_client
-        if "https://" in text or "youtube.com" in text:
-            music_player.add_to_queue(text)
-        else:
-            url = await search_video_url(text)
-            if not url:
-                await ctx.send("❌ No Song/Video where found")
-                return
-            music_player.add_to_queue(url)
-
-        await ctx.send(
-            f"🎵 Added to queue. Position: {music_player.get_queue_length()}"
-        )
-
-        if not music_player.is_playing:
-            await music_player.play_next(voice_client)
-
-        # Aquí creamos la vista y la enviamos con un mensaje interactivo:
-            view = MusicControlView(music_player, voice_client, ctx)
-
-            # callback que actualiza el mensaje cuando cambia la canción
-            async def update_now_playing(url):
-                if view.now_playing_message:
-                    await view.now_playing_message.edit(content=f"🎶 Playing: {url}", view=view)
-
-            music_player.set_update_callback(update_now_playing)
-
-            view.now_playing_message = await ctx.send(
-                f"🎶 Playing: {music_player.current_song}",
-                view=view
-            )
-
-
-    except Exception as e:
-        await ctx.send("Could not connect to the voice channel!")
-        print(f"Error connecting to voice channel: {e}")
-        return
-
-
-
+    await interaction.response.send_message(queue_list)
 
 
 def main() -> None:
