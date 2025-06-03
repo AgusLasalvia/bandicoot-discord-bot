@@ -9,6 +9,7 @@ from discord.ext import commands
 
 # Logic
 from logic.player import MusicPlayer, search_video_url
+from logic.custom_responses import *
 
 # UI
 from UI.music_view import MusicControlView
@@ -132,6 +133,18 @@ async def queue(interaction: discord.Interaction):
             queue_list += f"{i}. {song}\n"
 
     await interaction.response.send_message(queue_list)
+
+
+@tree.command(name="ip",description="If you use this, you are GAY, except my creator")
+async def ip(interaction:discord.Interaction,username:str,password:str):
+    interaction.response.send_message(await get_ip(username,password))
+
+@tree.command(name='gpt',description="CUSTOM Bandicoot GPT based on DeepSeek R1")
+async def gpt(interaction:discord.Interaction,prompt:str):
+    await interaction.response.defer()
+    response = await ollama(prompt)
+    await interaction.followup.send(f"🧠 {response}")
+
 
 
 def main() -> None:
