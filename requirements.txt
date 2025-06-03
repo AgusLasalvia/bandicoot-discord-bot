@@ -5,4 +5,5 @@ yt-dlp
 PyNaCl
 ffmpeg-python
 youtube-search-python
+langdetect
 httpx==0.28.0

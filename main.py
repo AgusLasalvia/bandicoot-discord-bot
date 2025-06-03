@@ -137,7 +137,7 @@ async def queue(interaction: discord.Interaction):
 
 @tree.command(name="ip",description="If you use this, you are GAY, except my creator")
 async def ip(interaction:discord.Interaction,username:str,password:str):
-    interaction.response.send_message(await get_ip(username,password))
+    await interaction.response.send_message(await get_ip(username,password))
 
 @tree.command(name='gpt',description="CUSTOM Bandicoot GPT based on DeepSeek R1")
 async def gpt(interaction:discord.Interaction,prompt:str):
