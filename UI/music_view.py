@@ -9,7 +9,7 @@ class MusicControlView(discord.ui.View):
         self.ctx = ctx
         self.now_playing_message = None  # para actualizar el mensaje de reproducción
 
-    @discord.ui.button(label="⏯️ Play/Pause", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Play/Pause", style=discord.ButtonStyle.primary)
     async def toggle_play(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.voice_client.is_playing():
             self.voice_client.pause()
@@ -20,7 +20,7 @@ class MusicControlView(discord.ui.View):
         else:
             await interaction.response.send_message("No music left in Queue.", ephemeral=True)
 
-    @discord.ui.button(label="⏭️ Next", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.secondary)
     async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.voice_client.is_playing() or self.voice_client.is_paused():
             self.voice_client.stop()
@@ -29,7 +29,7 @@ class MusicControlView(discord.ui.View):
             await interaction.response.send_message("Nothing to Skip.", ephemeral=True)
 
 
-    @discord.ui.button(label="⏹️ Stop", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger)
     async def stop(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.player.clear_queue()
         self.voice_client.stop()
