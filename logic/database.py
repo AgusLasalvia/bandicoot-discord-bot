@@ -12,26 +12,22 @@ PORT = os.getenv("SQL_PORT")
 
 print(HOST)
 
-
-conn = pymysql.connect(
-    host=HOST,
-    user=USER,
-    password=str(PASSWORD),
-    database=DATABASE,
-    port=int(PORT)
-) #pyright:ignore
-
-cursor = conn.cursor()
-
+def get_connection():
+    return pymysql.connect(
+        host=HOST,
+        user=USER,
+        password=PASSWORD,
+        database=DATABASE,
+        port=int(PORT),
+        autocommit=True
+    )
 
 def verify_sql_user(username: str, password: str) -> bool:
-    cursor.execute(
-        f"SELECT * FROM User WHERE username='{username}' AND password='{password}';")
-    response = list(cursor.fetchall())
-    print(response)
-    if len(response) > 0:
-        return True
-    return False
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT * FROM User WHERE username=%s AND password=%s", (username, password))
+            return cursor.fetchone() is not None
 
 
 def change_password(username: str, new_passowrd: str) -> bool:
