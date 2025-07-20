@@ -63,8 +63,10 @@ class MusicPlayer:
         try:
             url = self.queue.popleft()
             self.current_song = url
+            print(f"Intentando reproducir: {url}")
             source = await get_audio_source(url)
             if source:
+                print(f"Fuente de audio obtenida exitosamente para: {url}")
                 # 🔄 Callback para actualizar el mensaje en el canal
                 if self.update_now_playing:
                     await self.update_now_playing(url)
@@ -81,7 +83,9 @@ class MusicPlayer:
 
                 voice_client.play(source, after=after_callback)
                 self.is_playing = True
+                print(f"Reproducción iniciada para: {url}")
             else:
+                print(f"No se pudo obtener fuente de audio para: {url}")
                 await self.play_next(voice_client)
         except Exception as e:
             print(f"Error playing next song: {e}")
@@ -100,8 +104,11 @@ async def search_video_url(filter_text):
 
 async def get_audio_source(url: str):
     try:
+        print(f"Extrayendo info de: {url}")
         info = ytdl.extract_info(url, download=False)
+        print(f"Info extraída exitosamente")
         url_audio = info["url"] if "url" in info else info["formats"][0]["url"]  # pyright: ignore
+        print(f"URL de audio: {url_audio}")
         return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)  # pyright: ignore
     except Exception as e:
         print(f"Error getting audio source: {e}")

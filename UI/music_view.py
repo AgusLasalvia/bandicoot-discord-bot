@@ -35,3 +35,51 @@ class MusicControlView(discord.ui.View):
         self.voice_client.stop()
         await self.voice_client.disconnect()
         await interaction.response.edit_message(content="🛑 Player Stoped.", view=None)
+
+
+class PlaylistSelectView(discord.ui.View):
+    def __init__(self, playlists, callback_function):
+        super().__init__(timeout=60)  # 60 segundos de timeout
+        self.playlists = playlists
+        self.callback_function = callback_function
+        
+        # Crear las opciones para el select
+        options = []
+        for playlist in playlists:
+            options.append(
+                discord.SelectOption(
+                    label=playlist.get('name', 'Sin nombre'),
+                    value=playlist.get('_id', ''),
+                    description=f"ID: {playlist.get('_id', 'N/A')}"
+                )
+            )
+        
+        # Agregar el select al view
+        self.add_item(PlaylistSelect(options, callback_function))
+
+
+class PlaylistSelect(discord.ui.Select):
+    def __init__(self, options, callback_function):
+        super().__init__(
+            placeholder="Selecciona una playlist...",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+        self.callback_function = callback_function
+
+    async def callback(self, interaction: discord.Interaction):
+        selected_playlist_id = self.values[0]
+        selected_playlist_name = None
+        
+        # Encontrar el nombre de la playlist seleccionada
+        for option in self.options:
+            if option.value == selected_playlist_id:
+                selected_playlist_name = option.label
+                break
+        
+        # Deferir la respuesta para que la función callback pueda responder
+        await interaction.response.defer(ephemeral=True)
+        
+        # Llamar a la función callback con el ID de la playlist
+        await self.callback_function(interaction, selected_playlist_id, selected_playlist_name)
