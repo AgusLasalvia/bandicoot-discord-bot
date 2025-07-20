@@ -63,60 +63,58 @@ class MusicPlayer:
         try:
             url = self.queue.popleft()
             self.current_song = url
-            print(f"Intentando reproducir: {url}")
             source = await get_audio_source(url)
             if source:
-                print(f"Fuente de audio obtenida exitosamente para: {url}")
                 # 🔄 Callback para actualizar el mensaje en el canal
                 if self.update_now_playing:
                     await self.update_now_playing(url)
 
                 def after_callback(error):
                     if error:
-                        print(f"Error in playback: {error}")
-                    # Solo reproducir la siguiente canción si hay más en la cola
-                    if self.queue:
-                        coro = self.play_next(voice_client)
-                        fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
-                        try:
-                            fut.result()
-                        except:
-                            pass
+                        # Solo reproducir la siguiente canción si hay más en la cola
+                        if self.queue:
+                            coro = self.play_next(voice_client)
+                            fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
+                            try:
+                                fut.result()
+                            except:
+                                pass
+                        else:
+                            self.is_playing = False
+                            self.current_song = None
                     else:
-                        # Si no hay más canciones, detener la reproducción
-                        self.is_playing = False
-                        self.current_song = None
-                        print("Cola vacía, reproducción detenida")
+                        # Solo reproducir la siguiente canción si hay más en la cola
+                        if self.queue:
+                            coro = self.play_next(voice_client)
+                            fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
+                            try:
+                                fut.result()
+                            except:
+                                pass
+                        else:
+                            self.is_playing = False
+                            self.current_song = None
 
                 voice_client.play(source, after=after_callback)
                 self.is_playing = True
-                print(f"Reproducción iniciada para: {url}")
             else:
-                print(f"No se pudo obtener fuente de audio para: {url}")
                 await self.play_next(voice_client)
         except Exception as e:
-            print(f"Error playing next song: {e}")
             await self.play_next(voice_client)
 
 
 async def search_video_url(filter_text):
     try:
         search = VideosSearch(str(filter_text), limit=1).result()['result'][0]['link']
-        print(f"🔍 URL encontrada: {search}")
         return search
     except Exception as e:
-        print(f"Error en search_video_url: {e}")
         return None
 
 
 async def get_audio_source(url: str):
     try:
-        print(f"Extrayendo info de: {url}")
         info = ytdl.extract_info(url, download=False)
-        print(f"Info extraída exitosamente")
         url_audio = info["url"] if "url" in info else info["formats"][0]["url"]  # pyright: ignore
-        print(f"URL de audio: {url_audio}")
         return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)  # pyright: ignore
     except Exception as e:
-        print(f"Error getting audio source: {e}")
         return None
