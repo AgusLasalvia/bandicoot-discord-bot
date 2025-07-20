@@ -218,6 +218,7 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
             
             # Iniciar reproducción si no está reproduciendo
             if not music_player.is_playing:
+                # Solo reproducir la primera canción
                 await music_player.play_next(voice_client)
                 
                 # Crear la vista de control de música
@@ -236,13 +237,14 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
                 
                 await interaction.followup.send(
                     f"✅ **{added_count} canciones** agregadas a la cola de **{playlist_name}**\n"
-                    f"🎵 Reproducción iniciada automáticamente",
+                    f"🎵 Reproduciendo la primera canción. Usa ⏭️ para la siguiente.",
                     ephemeral=True
                 )
             else:
                 # Si ya está reproduciendo, solo mostrar el mensaje
                 await interaction.followup.send(
-                    f"✅ **{added_count} canciones** agregadas a la cola de **{playlist_name}**",
+                    f"✅ **{added_count} canciones** agregadas a la cola de **{playlist_name}**\n"
+                    f"⏭️ Usa el botón Next para reproducir la siguiente canción",
                     ephemeral=True
                 )
                 

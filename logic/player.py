@@ -74,12 +74,19 @@ class MusicPlayer:
                 def after_callback(error):
                     if error:
                         print(f"Error in playback: {error}")
-                    coro = self.play_next(voice_client)
-                    fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
-                    try:
-                        fut.result()
-                    except:
-                        pass
+                    # Solo reproducir la siguiente canción si hay más en la cola
+                    if self.queue:
+                        coro = self.play_next(voice_client)
+                        fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
+                        try:
+                            fut.result()
+                        except:
+                            pass
+                    else:
+                        # Si no hay más canciones, detener la reproducción
+                        self.is_playing = False
+                        self.current_song = None
+                        print("Cola vacía, reproducción detenida")
 
                 voice_client.play(source, after=after_callback)
                 self.is_playing = True
