@@ -14,7 +14,7 @@ session = None
 
 
 async def get_session():
-    """Crear una sesión HTTP reutilizable"""
+    """Create a reusable HTTP session"""
     global session
     if session is None or session.closed:
         timeout = ClientTimeout(total=30)
@@ -23,13 +23,13 @@ async def get_session():
 
 
 async def close_session():
-    """Cerrar la sesión HTTP de forma segura"""
+    """Safely close the HTTP session"""
     global session
     if session and not session.closed:
         try:
             await session.close()
         except Exception as e:
-            print(f"Error al cerrar sesión: {e}")
+            print(f"Error closing session: {e}")
 
 
 async def get_token():
@@ -42,9 +42,9 @@ async def get_token():
                 data = await response.json()
                 token = data.get("token")
             else:
-                print(f"Error al loguear: {await response.json()}")
+                print(f"Error logging in: {await response.json()}")
     except Exception as e:
-        print(f"Error en get_token: {e}")
+        print(f"Error in get_token: {e}")
 
 
 async def get_playlists():
@@ -59,13 +59,13 @@ async def get_playlists():
             else:
                 return []
     except Exception as e:
-        print(f"Error en get_playlists: {e}")
+        print(f"Error in get_playlists: {e}")
         return []
 
 
 async def get_playlist_songs(playlist_id: str):
     """
-    Obtiene las canciones de una playlist específica
+    Gets the songs from a specific playlist
     """
     try:
         if token is None:
@@ -77,20 +77,20 @@ async def get_playlist_songs(playlist_id: str):
             if response.status == 200:
                 data = await response.json()
 
-                # Extraer solo los IDs de YouTube de las canciones
+                # Extract only the YouTube IDs from the songs
                 youtube_ids = []
 
-                # Verificar si data es una lista de canciones o un objeto playlist completo
+                # Check if data is a list of songs or a full playlist object
                 if isinstance(data, dict) and 'songs' in data:
-                    # Es un objeto playlist completo
+                    # It's a full playlist object
                     songs = data['songs']
                 elif isinstance(data, list):
-                    # Es directamente una lista de canciones
+                    # It's directly a list of songs
                     songs = data
                 else:
                     return []
 
-                # Extraer los IDs de YouTube
+                # Extract the YouTube IDs
                 for song in songs:
                     if isinstance(song, dict):
                         youtube_id = song.get('youtube_id') or song.get(
@@ -101,8 +101,8 @@ async def get_playlist_songs(playlist_id: str):
                 return youtube_ids
             else:
                 print(
-                    f"Error al obtener canciones de playlist: {response.status}")
+                    f"Error getting playlist songs: {response.status}")
                 return []
     except Exception as e:
-        print(f"Error en get_playlist_songs: {e}")
+        print(f"Error in get_playlist_songs: {e}")
         return []

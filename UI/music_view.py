@@ -7,7 +7,7 @@ class MusicControlView(discord.ui.View):
         self.player = player
         self.voice_client = voice_client
         self.ctx = ctx
-        self.now_playing_message = None  # para actualizar el mensaje de reproducción
+        self.now_playing_message = None  # to update the now playing message
 
     @discord.ui.button(label="Play/Pause", style=discord.ButtonStyle.primary)
     async def toggle_play(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -39,11 +39,11 @@ class MusicControlView(discord.ui.View):
 
 class PlaylistSelectView(discord.ui.View):
     def __init__(self, playlists, callback_function):
-        super().__init__(timeout=60)  # 60 segundos de timeout
+        super().__init__(timeout=60)  # 60 seconds timeout
         self.playlists = playlists
         self.callback_function = callback_function
         
-        # Crear las opciones para el select
+        # Create the options for the select
         options = []
         for playlist in playlists:
             options.append(
@@ -54,7 +54,7 @@ class PlaylistSelectView(discord.ui.View):
                 )
             )
         
-        # Agregar el select al view
+        # Add the select to the view
         self.add_item(PlaylistSelect(options, callback_function))
 
 
@@ -72,14 +72,14 @@ class PlaylistSelect(discord.ui.Select):
         selected_playlist_id = self.values[0]
         selected_playlist_name = None
         
-        # Encontrar el nombre de la playlist seleccionada
+        # Find the name of the selected playlist
         for option in self.options:
             if option.value == selected_playlist_id:
                 selected_playlist_name = option.label
                 break
         
-        # Deferir la respuesta para que la función callback pueda responder
+        # Defer the response so the callback function can respond
         await interaction.response.defer(ephemeral=True)
         
-        # Llamar a la función callback con el ID de la playlist
+        # Call the callback function with the playlist ID
         await self.callback_function(interaction, selected_playlist_id, selected_playlist_name)

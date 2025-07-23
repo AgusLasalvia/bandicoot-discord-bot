@@ -32,7 +32,7 @@ class MusicPlayer:
         self.current_song = None
         self.is_playing = False
         self.voice_client = None
-        self.update_now_playing = None  # función callback
+        self.update_now_playing = None  # callback function
 
     def set_voice_client(self, vc):
         self.voice_client = vc
@@ -65,13 +65,13 @@ class MusicPlayer:
             self.current_song = url
             source = await get_audio_source(url)
             if source:
-                # 🔄 Callback para actualizar el mensaje en el canal
+                # �� Callback to update the message in the channel
                 if self.update_now_playing:
                     await self.update_now_playing(url)
 
                 def after_callback(error):
                     if error:
-                        # Solo reproducir la siguiente canción si hay más en la cola
+                        # Only play the next song if there are more in the queue
                         if self.queue:
                             coro = self.play_next(voice_client)
                             fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
@@ -83,7 +83,7 @@ class MusicPlayer:
                             self.is_playing = False
                             self.current_song = None
                     else:
-                        # Solo reproducir la siguiente canción si hay más en la cola
+                        # Only play the next song if there are more in the queue
                         if self.queue:
                             coro = self.play_next(voice_client)
                             fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)

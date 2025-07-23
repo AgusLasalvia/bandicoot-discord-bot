@@ -147,62 +147,62 @@ async def gpt(interaction:discord.Interaction,prompt:str):
     await interaction.followup.send(f"🧠 {response}")
 
 
-@tree.command(name="playlists", description="Mostrar y seleccionar playlists disponibles")
+@tree.command(name="playlists", description="Show and select available playlists")
 async def playlists(interaction: discord.Interaction):
     await interaction.response.defer()
     
     try:
-        # Obtener las playlists de la API
+        # Get playlists from the API
         playlists_data = await get_playlists()
         
         if not playlists_data:
-            await interaction.followup.send("❌ No se pudieron obtener las playlists o no hay playlists disponibles.", ephemeral=True)
+            await interaction.followup.send("❌ Could not get playlists or no playlists available.", ephemeral=True)
             return
         
-        # Crear la vista con el selector
+        # Create the view with the selector
         view = PlaylistSelectView(playlists_data, handle_playlist_selection)
         
         await interaction.followup.send(
-            f"📋 **Playlists disponibles ({len(playlists_data)}):**\nSelecciona una playlist del menú desplegable:",
+            f"📋 **Available playlists ({len(playlists_data)}):**\nSelect a playlist from the dropdown menu:",
             view=view
         )
         
     except Exception as e:
-        await interaction.followup.send(f"❌ Error al obtener las playlists: {str(e)}", ephemeral=True)
-        print(f"Error en comando playlists: {e}")
+        await interaction.followup.send(f"❌ Error getting playlists: {str(e)}", ephemeral=True)
+        print(f"Error in playlists command: {e}")
 
 
 async def handle_playlist_selection(interaction: discord.Interaction, playlist_id: str, playlist_name: str):
     """
-    Función callback que se ejecuta cuando el usuario selecciona una playlist
+    Callback function that is executed when the user selects a playlist
     """
     try:
-        # Mostrar mensaje de confirmación de la playlist seleccionada
-        await interaction.followup.send(f"🎵 Playlist seleccionada: **{playlist_name}**", ephemeral=True)
+        # Show confirmation message for the selected playlist
+        await interaction.followup.send(f"🎵 Playlist selected: **{playlist_name}**", ephemeral=True)
         
-        # Obtener las canciones de la playlist
+        # Get the songs from the playlist
         youtube_ids = await get_playlist_songs(playlist_id)
         
         if not youtube_ids:
-            await interaction.followup.send(f"❌ No se encontraron canciones en la playlist **{playlist_name}**", ephemeral=True)
+            await interaction.followup.send(f"❌ No songs found in the playlist **{playlist_name}**", ephemeral=True)
             return
         
-        # Convertir los IDs de YouTube a URLs completas
+        # Convert YouTube IDs to full URLs
         added_count = 0
         for youtube_id in youtube_ids:
             youtube_url = f"https://www.youtube.com/watch?v={youtube_id}"
-            print(f"Agregando URL: {youtube_url}")
+            print(f"Adding URL: {youtube_url}")
             music_player.add_to_queue(youtube_url)
             added_count += 1
         
-        print(f"Total de canciones agregadas a la cola: {added_count}")
-        print(f"Tamaño actual de la cola: {music_player.get_queue_length()}")
+        print(f"Total songs added to the queue: {added_count}")
+        print(f"Current queue size: {music_player.get_queue_length()}")
         
-        # Verificar si el usuario está en un canal de voz
+        # Check if the user is in a voice channel
         if not interaction.user.voice:
             await interaction.followup.send(
-                f"✅ **{added_count} canciones** agregadas a la cola de **{playlist_name}**\n"
-                f"🎵 Únete a un canal de voz y usa `/play` para comenzar la reproducción",
+                f"✅ **{added_count} songs** added to the queue of **{playlist_name}**\n"
+                f"🎵 Join a voice channel and use `/play` to start playback",
                 ephemeral=True
             )
             return
@@ -210,18 +210,18 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
         voice_channel = interaction.user.voice.channel
         
         try:
-            # Conectar al canal de voz si no está conectado
+            # Connect to the voice channel if not connected
             if not interaction.guild.voice_client:
                 voice_client = await voice_channel.connect()
             else:
                 voice_client = interaction.guild.voice_client
             
-            # Iniciar reproducción si no está reproduciendo
+            # Start playback if not playing
             if not music_player.is_playing:
-                # Solo reproducir la primera canción
+                # Only play the first song
                 await music_player.play_next(voice_client)
                 
-                # Crear la vista de control de música
+                # Create the music control view
                 view = MusicControlView(music_player, voice_client, interaction)
                 
                 async def update_now_playing(url):
@@ -236,40 +236,40 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
                 )
                 
                 await interaction.followup.send(
-                    f"✅ **{added_count} canciones** agregadas a la cola de **{playlist_name}**\n"
-                    f"🎵 Reproduciendo la primera canción. Usa ⏭️ para la siguiente.",
+                    f"✅ **{added_count} songs** added to the queue of **{playlist_name}**\n"
+                    f"🎵 Reproducing the first song. Use ⏭️ for the next one.",
                     ephemeral=True
                 )
             else:
-                # Si ya está reproduciendo, solo mostrar el mensaje
+                # If already playing, just show the message
                 await interaction.followup.send(
-                    f"✅ **{added_count} canciones** agregadas a la cola de **{playlist_name}**\n"
-                    f"⏭️ Usa el botón Next para reproducir la siguiente canción",
+                    f"✅ **{added_count} songs** added to the queue of **{playlist_name}**\n"
+                    f"⏭️ Use the Next button to play the next song",
                     ephemeral=True
                 )
                 
         except Exception as e:
             await interaction.followup.send(
-                f"✅ **{added_count} canciones** agregadas a la cola de **{playlist_name}**\n"
-                f"❌ Error al conectar al canal de voz: {str(e)}",
+                f"✅ **{added_count} songs** added to the queue of **{playlist_name}**\n"
+                f"❌ Error connecting to voice channel: {str(e)}",
                 ephemeral=True
             )
-            print(f"Error al conectar al canal de voz: {e}")
+            print(f"Error connecting to voice channel: {e}")
         
     except Exception as e:
-        await interaction.followup.send(f"❌ Error al cargar la playlist: {str(e)}", ephemeral=True)
-        print(f"Error en handle_playlist_selection: {e}")
+        await interaction.followup.send(f"❌ Error loading the playlist: {str(e)}", ephemeral=True)
+        print(f"Error in handle_playlist_selection: {e}")
 
 
-@tree.command(name="sync", description="Sincronizar comandos con Discord (solo para desarrolladores)")
+@tree.command(name="sync", description="Sync commands with Discord (developers only)")
 async def sync(interaction: discord.Interaction):
     try:
         await tree.sync()
-        await interaction.response.send_message("✅ Comandos sincronizados correctamente!", ephemeral=True)
-        print("Comandos sincronizados manualmente")
+        await interaction.response.send_message("✅ Commands synced successfully!", ephemeral=True)
+        print("Commands synced manually")
     except Exception as e:
-        await interaction.response.send_message(f"❌ Error al sincronizar: {str(e)}", ephemeral=True)
-        print(f"Error en sincronización: {e}")
+        await interaction.response.send_message(f"❌ Error syncing: {str(e)}", ephemeral=True)
+        print(f"Error in sync: {e}")
 
 
 
