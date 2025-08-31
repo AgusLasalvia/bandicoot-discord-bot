@@ -74,7 +74,8 @@ class MusicPlayer:
                         # Only play the next song if there are more in the queue
                         if self.queue:
                             coro = self.play_next(voice_client)
-                            fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
+                            fut = asyncio.run_coroutine_threadsafe(
+                                coro, voice_client.loop)
                             try:
                                 fut.result()
                             except:
@@ -86,7 +87,8 @@ class MusicPlayer:
                         # Only play the next song if there are more in the queue
                         if self.queue:
                             coro = self.play_next(voice_client)
-                            fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
+                            fut = asyncio.run_coroutine_threadsafe(
+                                coro, voice_client.loop)
                             try:
                                 fut.result()
                             except:
@@ -105,7 +107,9 @@ class MusicPlayer:
 
 async def search_video_url(filter_text):
     try:
-        search = VideosSearch(str(filter_text), limit=1).result()['result'][0]['link']
+        search = VideosSearch(str(filter_text), limit=1).result()[
+            'result'][0]['link']
+
         return search
     except Exception as e:
         return None
@@ -114,7 +118,10 @@ async def search_video_url(filter_text):
 async def get_audio_source(url: str):
     try:
         info = ytdl.extract_info(url, download=False)
-        url_audio = info["url"] if "url" in info else info["formats"][0]["url"]  # pyright: ignore
-        return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)  # pyright: ignore
+        # pyright: ignore
+        url_audio = info["url"] if "url" in info else info["formats"][0]["url"]
+
+        # pyright: ignore
+        return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)
     except Exception as e:
         return None
