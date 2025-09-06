@@ -9,6 +9,11 @@ yt_formats_options = {
     "quiet": True,
     "default_search": "auto",
     "noplaylist": True,
+    "extract_flat": False,
+    "no_warnings": False,
+    "extractaudio": True,
+    "audioformat": "mp3",
+    "audioquality": "192K",
     "postprocessors": [
         {
             "key": "FFmpegExtractAudio",
@@ -16,6 +21,27 @@ yt_formats_options = {
             "preferredquality": "192",
         }
     ],
+    # Anti-bot detection measures
+    "cookiesfrombrowser": None,
+    "extractor_retries": 3,
+    "fragment_retries": 3,
+    "retries": 3,
+    "sleep_interval": 1,
+    "max_sleep_interval": 5,
+    "sleep_interval_subtitles": 1,
+    # User agent and headers to avoid detection
+    "http_headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    },
+    # Additional options to handle signature extraction
+    "extractor_args": {
+        "youtube": {
+            "skip": ["dash", "hls"],
+            "player_skip": ["configs"],
+            "comment_sort": ["top"],
+            "max_comments": [0],
+        }
+    }
 }
 
 ffmpeg_options = {
@@ -107,21 +133,64 @@ class MusicPlayer:
 
 async def search_video_url(filter_text):
     try:
-        search = VideosSearch(str(filter_text), limit=1).result()[
-            'result'][0]['link']
-
-        return search
+        search = VideosSearch(str(filter_text), limit=1)
+        result = search.result()
+        
+        if result and 'result' in result and len(result['result']) > 0:
+            return result['result'][0]['link']
+        else:
+            print(f"No search results found for: {filter_text}")
+            return None
     except Exception as e:
+        print(f"Error searching for '{filter_text}': {str(e)}")
         return None
 
 
 async def get_audio_source(url: str):
     try:
+        # Try to extract info with the updated configuration
         info = ytdl.extract_info(url, download=False)
-        # pyright: ignore
-        url_audio = info["url"] if "url" in info else info["formats"][0]["url"]
+        
+        # Handle different response formats
+        if "url" in info:
+            url_audio = info["url"]
+        elif "formats" in info and len(info["formats"]) > 0:
+            # Find the best audio format
+            audio_formats = [f for f in info["formats"] if f.get("acodec") != "none"]
+            if audio_formats:
+                url_audio = audio_formats[0]["url"]
+            else:
+                url_audio = info["formats"][0]["url"]
+        else:
+            print(f"No valid audio URL found for: {url}")
+            return None
 
         # pyright: ignore
         return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)
     except Exception as e:
-        return None
+        print(f"Error extracting audio from {url}: {str(e)}")
+        # Try with a fallback configuration if the main one fails
+        try:
+            fallback_options = {
+                "format": "bestaudio[ext=m4a]/bestaudio/best",
+                "quiet": True,
+                "no_warnings": True,
+                "extract_flat": False,
+                "http_headers": {
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                }
+            }
+            fallback_ytdl = yt_dlp.YoutubeDL(fallback_options)
+            info = fallback_ytdl.extract_info(url, download=False)
+            
+            if "url" in info:
+                url_audio = info["url"]
+            elif "formats" in info and len(info["formats"]) > 0:
+                url_audio = info["formats"][0]["url"]
+            else:
+                return None
+                
+            return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)
+        except Exception as fallback_error:
+            print(f"Fallback extraction also failed for {url}: {str(fallback_error)}")
+            return None
