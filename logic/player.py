@@ -2,7 +2,7 @@ import discord
 import yt_dlp
 from collections import deque
 import asyncio
-from youtubesearchpython import VideosSearch
+import random
 
 yt_formats_options = {
     "format": "bestaudio/best",
@@ -21,7 +21,6 @@ yt_formats_options = {
             "preferredquality": "192",
         }
     ],
-    # Anti-bot detection measures
     "cookiesfrombrowser": None,
     "extractor_retries": 3,
     "fragment_retries": 3,
@@ -29,11 +28,9 @@ yt_formats_options = {
     "sleep_interval": 1,
     "max_sleep_interval": 5,
     "sleep_interval_subtitles": 1,
-    # User agent and headers to avoid detection
     "http_headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     },
-    # Additional options to handle signature extraction
     "extractor_args": {
         "youtube": {
             "skip": ["dash", "hls"],
@@ -52,13 +49,57 @@ ffmpeg_options = {
 ytdl = yt_dlp.YoutubeDL(yt_formats_options)
 
 
+class SongInfo:
+    """Holds metadata for a queued song."""
+    def __init__(self, url: str, title: str = None, thumbnail: str = None, duration: int = None):
+        self.url = url
+        self.title = title or url
+        self.thumbnail = thumbnail
+        self.duration = duration
+
+    def format_duration(self) -> str:
+        if not self.duration:
+            return "Unknown"
+        minutes, seconds = divmod(self.duration, 60)
+        hours, minutes = divmod(minutes, 60)
+        if hours:
+            return f"{hours}:{minutes:02d}:{seconds:02d}"
+        return f"{minutes}:{seconds:02d}"
+
+
+async def fetch_song_info(url: str) -> SongInfo:
+    """Fetch title/thumbnail from YouTube without downloading."""
+    try:
+        loop = asyncio.get_event_loop()
+        def _extract():
+            opts = {"quiet": True, "noplaylist": True, "skip_download": True}
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info and "entries" in info:
+                    info = info["entries"][0]
+                return info
+        info = await loop.run_in_executor(None, _extract)
+        if info:
+            return SongInfo(
+                url=url,
+                title=info.get("title") or url,
+                thumbnail=info.get("thumbnail"),
+                duration=info.get("duration"),
+            )
+    except Exception as e:
+        print(f"Error fetching song info for {url}: {e}")
+    return SongInfo(url=url)
+
+
 class MusicPlayer:
     def __init__(self):
-        self.queue = deque()
-        self.current_song = None
+        self.queue: deque[SongInfo] = deque()
+        self.current_song: SongInfo | None = None
         self.is_playing = False
+        self.loop = False
+        self.shuffle = False
         self.voice_client = None
-        self.update_now_playing = None  # callback function
+        self.update_now_playing = None
 
     def set_voice_client(self, vc):
         self.voice_client = vc
@@ -66,8 +107,8 @@ class MusicPlayer:
     def set_update_callback(self, callback):
         self.update_now_playing = callback
 
-    def add_to_queue(self, url: str):
-        self.queue.append(url)
+    def add_to_queue(self, song: SongInfo):
+        self.queue.append(song)
 
     def clear_queue(self):
         self.queue.clear()
@@ -77,70 +118,72 @@ class MusicPlayer:
     def get_queue_length(self):
         return len(self.queue)
 
+    def toggle_loop(self) -> bool:
+        self.loop = not self.loop
+        return self.loop
+
+    def toggle_shuffle(self) -> bool:
+        self.shuffle = not self.shuffle
+        if self.shuffle:
+            queue_list = list(self.queue)
+            random.shuffle(queue_list)
+            self.queue = deque(queue_list)
+        return self.shuffle
+
     async def play_next(self, voice_client):
+        if voice_client.is_playing():
+            voice_client.stop()
+
+        # Loop: re-queue the current song before popping the next
+        if self.loop and self.current_song:
+            self.queue.appendleft(self.current_song)
+
         if not self.queue or not voice_client:
             self.is_playing = False
             self.current_song = None
             return
 
-        if voice_client.is_playing():
-            voice_client.stop()
-
         try:
-            url = self.queue.popleft()
-            self.current_song = url
-            source = await get_audio_source(url)
+            song = self.queue.popleft()
+            self.current_song = song
+            source = await get_audio_source(song.url)
             if source:
-                # �� Callback to update the message in the channel
                 if self.update_now_playing:
-                    await self.update_now_playing(url)
+                    await self.update_now_playing(song)
 
                 def after_callback(error):
                     if error:
-                        # Only play the next song if there are more in the queue
-                        if self.queue:
-                            coro = self.play_next(voice_client)
-                            fut = asyncio.run_coroutine_threadsafe(
-                                coro, voice_client.loop)
-                            try:
-                                fut.result()
-                            except:
-                                pass
-                        else:
-                            self.is_playing = False
-                            self.current_song = None
+                        print(f"Playback error: {error}")
+                    if self.queue:
+                        coro = self.play_next(voice_client)
+                        fut = asyncio.run_coroutine_threadsafe(coro, voice_client.loop)
+                        try:
+                            fut.result()
+                        except Exception:
+                            pass
                     else:
-                        # Only play the next song if there are more in the queue
-                        if self.queue:
-                            coro = self.play_next(voice_client)
-                            fut = asyncio.run_coroutine_threadsafe(
-                                coro, voice_client.loop)
-                            try:
-                                fut.result()
-                            except:
-                                pass
-                        else:
-                            self.is_playing = False
-                            self.current_song = None
+                        self.is_playing = False
+                        self.current_song = None
 
                 voice_client.play(source, after=after_callback)
                 self.is_playing = True
             else:
                 await self.play_next(voice_client)
         except Exception as e:
+            print(f"Error in play_next: {e}")
             await self.play_next(voice_client)
 
 
-async def search_video_url(filter_text):
+async def search_video_url(filter_text: str) -> str | None:
     try:
-        search = VideosSearch(str(filter_text), limit=1)
-        result = search.result()
-        
-        if result and 'result' in result and len(result['result']) > 0:
-            return result['result'][0]['link']
-        else:
-            print(f"No search results found for: {filter_text}")
-            return None
+        loop = asyncio.get_event_loop()
+        def search():
+            with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True}) as ydl:
+                info = ydl.extract_info(f"ytsearch1:{filter_text}", download=False)
+                if info and "entries" in info and len(info["entries"]) > 0:
+                    return info["entries"][0]["webpage_url"]
+                return None
+        return await loop.run_in_executor(None, search)
     except Exception as e:
         print(f"Error searching for '{filter_text}': {str(e)}")
         return None
@@ -148,28 +191,18 @@ async def search_video_url(filter_text):
 
 async def get_audio_source(url: str):
     try:
-        # Try to extract info with the updated configuration
         info = ytdl.extract_info(url, download=False)
-        
-        # Handle different response formats
         if "url" in info:
             url_audio = info["url"]
         elif "formats" in info and len(info["formats"]) > 0:
-            # Find the best audio format
             audio_formats = [f for f in info["formats"] if f.get("acodec") != "none"]
-            if audio_formats:
-                url_audio = audio_formats[0]["url"]
-            else:
-                url_audio = info["formats"][0]["url"]
+            url_audio = audio_formats[0]["url"] if audio_formats else info["formats"][0]["url"]
         else:
             print(f"No valid audio URL found for: {url}")
             return None
-
-        # pyright: ignore
-        return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)
+        return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)  # pyright: ignore
     except Exception as e:
         print(f"Error extracting audio from {url}: {str(e)}")
-        # Try with a fallback configuration if the main one fails
         try:
             fallback_options = {
                 "format": "bestaudio[ext=m4a]/bestaudio/best",
@@ -182,15 +215,13 @@ async def get_audio_source(url: str):
             }
             fallback_ytdl = yt_dlp.YoutubeDL(fallback_options)
             info = fallback_ytdl.extract_info(url, download=False)
-            
             if "url" in info:
                 url_audio = info["url"]
             elif "formats" in info and len(info["formats"]) > 0:
                 url_audio = info["formats"][0]["url"]
             else:
                 return None
-                
-            return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)
+            return discord.FFmpegPCMAudio(url_audio, **ffmpeg_options)  # pyright: ignore
         except Exception as fallback_error:
             print(f"Fallback extraction also failed for {url}: {str(fallback_error)}")
             return None

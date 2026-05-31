@@ -1,4 +1,5 @@
 import os
+import asyncio
 from typing import Final
 
 from dotenv import load_dotenv
@@ -8,12 +9,11 @@ from discord import app_commands, Intents
 from discord.ext import commands
 
 # Logic
-from logic.player import MusicPlayer, search_video_url
-from logic.custom_responses import *
+from logic.player import MusicPlayer, SongInfo, search_video_url, fetch_song_info
 from logic.api import get_playlists, get_playlist_songs
 
 # UI
-from UI.music_view import MusicControlView, PlaylistSelectView
+from UI.music_view import MusicControlView, PlaylistSelectView, build_now_playing_embed, build_queue_embed
 
 load_dotenv()
 
@@ -43,6 +43,10 @@ async def on_voice_state_update(member, before, after):
 
 @bot.event
 async def on_ready() -> None:
+    for guild in bot.guilds:
+        if guild.voice_client:
+            await guild.voice_client.disconnect(force=True)
+
     await tree.sync()
     print(f"{bot.user} is now running and slash commands are synced")
 
@@ -53,6 +57,8 @@ async def play(interaction: discord.Interaction, query: str):
         await interaction.response.send_message("You need to be in a voice channel to use this command!", ephemeral=True)
         return
 
+    await interaction.response.defer()  # ← Agregar esto
+
     voice_channel = interaction.user.voice.channel
 
     try:
@@ -62,34 +68,38 @@ async def play(interaction: discord.Interaction, query: str):
             voice_client = interaction.guild.voice_client
 
         if "https://" in query or "youtube.com" in query:
-            music_player.add_to_queue(query)
+            song = await fetch_song_info(query)
         else:
             url = await search_video_url(query)
             if not url:
-                await interaction.response.send_message("❌ No Song/Video found", ephemeral=True)
+                await interaction.followup.send("❌ No Song/Video found", ephemeral=True)
                 return
-            music_player.add_to_queue(url)
+            song = await fetch_song_info(url)
 
-        await interaction.response.send_message(f"🎵 Added to queue. Position: {music_player.get_queue_length()}")
+        music_player.add_to_queue(song)
+        await interaction.followup.send(f"🎵 Added **{song.title}** to queue. Position: {music_player.get_queue_length()}")
 
         if not music_player.is_playing:
             await music_player.play_next(voice_client)
 
             view = MusicControlView(music_player, voice_client, interaction)
 
-            async def update_now_playing(url):
+            async def update_now_playing(song: SongInfo):
                 if view.now_playing_message:
-                    await view.now_playing_message.edit(content=f"🎶 Playing: {url}", view=view)
+                    try:
+                        await view.now_playing_message.delete()
+                    except Exception:
+                        pass
+                embed = build_now_playing_embed(song, music_player)
+                view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
 
             music_player.set_update_callback(update_now_playing)
 
-            view.now_playing_message = await interaction.channel.send(
-                f"🎶 Playing: {music_player.current_song}",
-                view=view
-            )
+            embed = build_now_playing_embed(music_player.current_song, music_player)
+            view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
 
     except Exception as e:
-        await interaction.response.send_message("Could not connect to the voice channel!", ephemeral=True)
+        await interaction.followup.send("Could not connect to the voice channel!", ephemeral=True)
         print(f"Error connecting to voice channel: {e}")
 
 
@@ -121,30 +131,11 @@ async def stop(interaction: discord.Interaction):
 @tree.command(name="queue", description="Show the current music queue")
 async def queue(interaction: discord.Interaction):
     if music_player.get_queue_length() == 0 and not music_player.current_song:
-        await interaction.response.send_message("Queue is empty")
+        await interaction.response.send_message("Queue is empty", ephemeral=True)
         return
+    embed = build_queue_embed(music_player)
+    await interaction.response.send_message(embed=embed)
 
-    queue_list = "🎵 **Music Queue:**\n"
-    if music_player.current_song:
-        queue_list += f"**Now Playing:** {music_player.current_song}\n"
-
-    if music_player.get_queue_length() > 0:
-        queue_list += "\n**Up Next:**\n"
-        for i, song in enumerate(music_player.queue, 1):
-            queue_list += f"{i}. {song}\n"
-
-    await interaction.response.send_message(queue_list)
-
-
-@tree.command(name="ip",description="If you use this, you are GAY, except my creator")
-async def ip(interaction:discord.Interaction,username:str,password:str):
-    await interaction.response.send_message(await get_ip(username,password))
-
-@tree.command(name='gpt',description="CUSTOM Bandicoot GPT based on DeepSeek R1")
-async def gpt(interaction:discord.Interaction,prompt:str):
-    await interaction.response.defer()
-    response = await ollama(prompt)
-    await interaction.followup.send(f"🧠 {response}")
 
 
 @tree.command(name="playlists", description="Show and select available playlists")
@@ -187,12 +178,11 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
             await interaction.followup.send(f"❌ No songs found in the playlist **{playlist_name}**", ephemeral=True)
             return
         
-        # Convert YouTube IDs to full URLs
+        # Convert YouTube IDs to SongInfo objects (titles fetched lazily during playback)
         added_count = 0
         for youtube_id in youtube_ids:
             youtube_url = f"https://www.youtube.com/watch?v={youtube_id}"
-            print(f"Adding URL: {youtube_url}")
-            music_player.add_to_queue(youtube_url)
+            music_player.add_to_queue(SongInfo(url=youtube_url))
             added_count += 1
         
         print(f"Total songs added to the queue: {added_count}")
@@ -218,22 +208,23 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
             
             # Start playback if not playing
             if not music_player.is_playing:
-                # Only play the first song
                 await music_player.play_next(voice_client)
-                
-                # Create the music control view
+
                 view = MusicControlView(music_player, voice_client, interaction)
-                
-                async def update_now_playing(url):
+
+                async def update_now_playing(song: SongInfo):
                     if view.now_playing_message:
-                        await view.now_playing_message.edit(content=f"🎶 Playing: {url}", view=view)
-                
+                        try:
+                            await view.now_playing_message.delete()
+                        except Exception:
+                            pass
+                    embed = build_now_playing_embed(song, music_player)
+                    view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
+
                 music_player.set_update_callback(update_now_playing)
-                
-                view.now_playing_message = await interaction.channel.send(
-                    f"🎶 Playing: {music_player.current_song}",
-                    view=view
-                )
+
+                embed = build_now_playing_embed(music_player.current_song, music_player)
+                view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
                 
                 await interaction.followup.send(
                     f"✅ **{added_count} songs** added to the queue of **{playlist_name}**\n"
