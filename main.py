@@ -25,6 +25,19 @@ intents.message_content = True
 bot = commands.Bot(intents=intents, command_prefix=commands.when_mentioned)
 tree = bot.tree
 music_player = MusicPlayer()
+current_view: MusicControlView | None = None
+
+
+async def cleanup_player():
+    """Clear the queue and delete the now-playing message."""
+    global current_view
+    music_player.clear_queue()
+    if current_view and current_view.now_playing_message:
+        try:
+            await current_view.now_playing_message.delete()
+        except Exception:
+            pass
+    current_view = None
 
 
 @bot.event
@@ -37,7 +50,7 @@ async def on_voice_state_update(member, before, after):
     if before.channel == voice_channel and after.channel != voice_channel:
         if len([m for m in voice_channel.members if not m.bot]) == 0:
             await voice_client.disconnect()
-            music_player.clear_queue()
+            await cleanup_player()
             print(f"Bot disconnected from {voice_channel} because the channel is empty.")
 
 
@@ -82,6 +95,11 @@ async def play(interaction: discord.Interaction, query: str):
         if not music_player.is_playing:
             await music_player.play_next(voice_client)
 
+            if not music_player.current_song:
+                await interaction.followup.send("❌ Could not load the song.", ephemeral=True)
+                return
+
+            channel = interaction.channel
             view = MusicControlView(music_player, voice_client, interaction)
 
             async def update_now_playing(song: SongInfo):
@@ -91,12 +109,12 @@ async def play(interaction: discord.Interaction, query: str):
                     except Exception:
                         pass
                 embed = build_now_playing_embed(song, music_player)
-                view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
+                view.now_playing_message = await channel.send(embed=embed, view=view)
 
             music_player.set_update_callback(update_now_playing)
 
             embed = build_now_playing_embed(music_player.current_song, music_player)
-            view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
+            view.now_playing_message = await channel.send(embed=embed, view=view)
 
     except Exception as e:
         await interaction.followup.send("Could not connect to the voice channel!", ephemeral=True)
@@ -210,6 +228,7 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
             if not music_player.is_playing:
                 await music_player.play_next(voice_client)
 
+                channel = interaction.channel
                 view = MusicControlView(music_player, voice_client, interaction)
 
                 async def update_now_playing(song: SongInfo):
@@ -219,12 +238,12 @@ async def handle_playlist_selection(interaction: discord.Interaction, playlist_i
                         except Exception:
                             pass
                     embed = build_now_playing_embed(song, music_player)
-                    view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
+                    view.now_playing_message = await channel.send(embed=embed, view=view)
 
                 music_player.set_update_callback(update_now_playing)
 
                 embed = build_now_playing_embed(music_player.current_song, music_player)
-                view.now_playing_message = await interaction.channel.send(embed=embed, view=view)
+                view.now_playing_message = await channel.send(embed=embed, view=view)
                 
                 await interaction.followup.send(
                     f"✅ **{added_count} songs** added to the queue of **{playlist_name}**\n"
