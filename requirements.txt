@@ -1,9 +1,6 @@
 discord
-pymysql
 python-dotenv
 yt-dlp>=2024.12.13
 PyNaCl
 ffmpeg-python
-youtube-search-python
-langdetect
-httpx=0.28.0
+aiohttp
